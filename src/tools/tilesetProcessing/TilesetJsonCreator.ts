@@ -124,11 +124,11 @@ export class TilesetJsonCreator {
     const buildingCoordinates = fs.readFileSync(coordinateFile).toString().split(",").map(Number);
     const buildingTransform = TilesetJsonCreator.computeTransformMatrixFromCartographicPositionDegrees(buildingCoordinates);
     const centerTransform = TilesetJsonCreator.computeTransformMatrixFromCartographicPositionDegrees(cartographicPositionDegrees!);
-    const transform = Matrix4.multiply(
+    const transform = Matrix4.toArray(Matrix4.multiply(
       Matrix4.inverse(centerTransform, new Matrix4()),
       buildingTransform,
       new Matrix4()
-    );
+    ));
     return TilesetJsonCreator.createLeafTile(
       boundingVolume,
       geometricError,
