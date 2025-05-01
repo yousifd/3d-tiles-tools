@@ -50,14 +50,16 @@ export class TilesetJsonCreator {
    */
   static async createTilesetFromContents(
     baseDir: string,
-    contentUris: string[]
+    contentUris: string[],
+    cartographicPositionDegrees?: number[]
   ) {
     const leafTiles: Tile[] = [];
     for (let i = 0; i < contentUris.length; i++) {
       const contentUri = contentUris[i];
       const leafTile = await TilesetJsonCreator.createLeafTileFromContent(
         baseDir,
-        contentUri
+        contentUri,
+        cartographicPositionDegrees,
       );
       if (leafTile) {
         leafTiles.push(leafTile);
@@ -89,7 +91,8 @@ export class TilesetJsonCreator {
    */
   private static async createLeafTileFromContent(
     baseDir: string,
-    contentUri: string
+    contentUri: string,
+    cartographicPositionDegrees?: number[],
   ): Promise<Tile | undefined> {
     // Read the content data and determine its type
     const fileName = path.join(baseDir, contentUri);
@@ -115,11 +118,22 @@ export class TilesetJsonCreator {
     const boundingVolume = {
       box: boundingVolumeBox,
     };
+    // SOURCE: https://community.cesium.com/t/placing-multiple-models-using-geographic-coordinates/30090/2
     const geometricError = DEFAULT_LEAF_GEOMETRIC_ERROR;
+    const coordinateFile = path.join(baseDir, contentUri + ".coordinates.text");
+    const buildingCoordinates = fs.readFileSync(coordinateFile).toString().split(",").map(Number);
+    const buildingTransform = TilesetJsonCreator.computeTransformMatrixFromCartographicPositionDegrees(buildingCoordinates);
+    const centerTransform = TilesetJsonCreator.computeTransformMatrixFromCartographicPositionDegrees(cartographicPositionDegrees!);
+    const transform = Matrix4.multiply(
+      Matrix4.inverse(centerTransform, new Matrix4()),
+      buildingTransform,
+      new Matrix4()
+    );
     return TilesetJsonCreator.createLeafTile(
       boundingVolume,
       geometricError,
-      contentUri
+      contentUri,
+      transform
     );
   }
 
@@ -253,7 +267,8 @@ export class TilesetJsonCreator {
   private static createLeafTile(
     boundingVolume: BoundingVolume,
     geometricError: number,
-    contentUri: string
+    contentUri: string,
+    transform?: number[]
   ): Tile {
     const tile: Tile = {
       boundingVolume: boundingVolume,
@@ -261,6 +276,7 @@ export class TilesetJsonCreator {
       content: {
         uri: contentUri,
       },
+      transform: transform,
     };
     return tile;
   }
@@ -279,6 +295,15 @@ export class TilesetJsonCreator {
    */
   static computeTransformFromCartographicPositionDegrees(
     cartographicPositionDegrees: number[]
+  ) {
+    const enuMatrix = TilesetJsonCreator.computeTransformMatrixFromCartographicPositionDegrees(
+      cartographicPositionDegrees);
+    const transform = Matrix4.toArray(enuMatrix);
+    return transform;
+  }
+
+  static computeTransformMatrixFromCartographicPositionDegrees(
+    cartographicPositionDegrees: number[] 
   ) {
     if (cartographicPositionDegrees.length < 2) {
       throw new DeveloperError(
@@ -299,7 +324,6 @@ export class TilesetJsonCreator {
     );
     const cartesian = Cartographic.toCartesian(cartographic);
     const enuMatrix = Transforms.eastNorthUpToFixedFrame(cartesian);
-    const transform = Matrix4.toArray(enuMatrix);
-    return transform;
+    return enuMatrix;
   }
 }

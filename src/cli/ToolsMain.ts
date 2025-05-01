@@ -622,7 +622,8 @@ export class ToolsMain {
     logger.info(`Creating tileset JSON with content URIs: ${contentUris}`);
     const tileset = await TilesetJsonCreator.createTilesetFromContents(
       baseDir,
-      contentUris
+      contentUris,
+      cartographicPositionDegrees
     );
 
     if (cartographicPositionDegrees !== undefined) {
